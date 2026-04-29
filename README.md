@@ -1,10 +1,10 @@
- AI Shopping Assistant SRS Document
+## AI Shopping Assistant SRS Document
 
-Overview
+## Overview
 
 This is the Software Requirements Specification (SRS) document for an AI-based Shopping Assistant system. The system helps users find suitable products through a conversational interface using natural language queries.
 
-Contents
+## Contents
 
 * Introduction
 * Scope and Purpose
@@ -13,15 +13,15 @@ Contents
 * Use Case Descriptions
 * Use Case Diagram
 
- Purpose
+## Purpose
 
 The purpose of this document is to define system requirements and provide a clear understanding of the system’s structure and functionality.
 
-Document
+## Document
 
 The complete SRS document is available in this repository.
 
-Technologies
+## Technologies
 
 * Frontend: HTML, CSS, JavaScript
 * Backend: Django (Python)
