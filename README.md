@@ -18,7 +18,7 @@ AI Shopping Assistant is a web-based ecommerce recommendation system developed a
 * **Backend:** Django
 * **Database:** MySQL
 * **NLP Library:** spaCy
-* **Frontend:** HTML, CSS, JavaScript
+* **Frontend:** HTML, CSS, JavaScript, Bootstrap
 
 ## System Architecture
 
