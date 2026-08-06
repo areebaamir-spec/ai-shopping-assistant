@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environment
+venv/
+source/venv/
+
+# Database
+db.sqlite3
+source/db.sqlite3
+
+# Environment Variables
+.env
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Python cache
+.pytest_cache/
+*.log
+
+# Media uploads
+media/
+source/media/
+
+# Static collected files
+staticfiles/
