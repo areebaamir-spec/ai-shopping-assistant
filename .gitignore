@@ -33,3 +33,6 @@ source/media/
 
 # Static collected files
 staticfiles/
+
+# Large raw dataset
+source/config/data/raw/
