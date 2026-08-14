@@ -1,29 +1,10 @@
-def normalize_query(query):
-    """
-    Clean the user's shopping query so that
-    it is easier for the NLP layer to process.
-    """
 
-    if not query:
-        return ""
+import spacy as sp
 
-    query = query.lower().strip()
+nlp = sp.load("en_core_web_sm")
 
-    return query
-
-
-def extract_category(query):
-    """
-    Identify the product category mentioned
-    in the user's shopping query.
-    """
-
-    if not query:
-        return None
-
-    product_categories = [
+product_categories = [
         "soundbar",
-        "headphones",
         "headphone",
         "laptop",
         "computer",
@@ -36,16 +17,64 @@ def extract_category(query):
         "keyboard",
         "mouse",
         "television",
-        "tv"
+        "tv",
     ]
 
-    words = query.split()
+def normalize_query(query):
+    """
+    Clean the user's shopping query so that
+    it is easier for the NLP layer to process.
+    """
+
+    if not query:
+        return ""
+
+    return query.lower().strip()
+
+def tokenize_and_lemmatize(query):
+    """
+    Run the query through spaCy to get a list of lemmas.
+
+    This replaces raw query.split() with proper tokenization,
+    which automatically separates punctuation from words
+    (e.g. "headphones." -> "headphones" + "."), and lemmatization,
+    which reduces words to their base form so plurals and
+    singulars both match the same keyword
+    (e.g. "cameras" -> "camera", "mice" -> "mouse").
+
+    Punctuation and whitespace tokens are dropped since they
+    carry no matching value for keyword lookup.
+    """
+
+    if not query:
+        return []
+
+    doc = nlp(query)
+
+    return [
+        token.lemma_
+        for token in doc
+        if not token.is_punct and not token.is_space
+    ]
+
+
+def extract_category(query):
+    """
+    Identify the product category mentioned
+    in the user's shopping query.
+    """
+
+    if not query:
+        return None
+
+    lemmas = tokenize_and_lemmatize(query)
 
     for category in product_categories:
-        if category in words:
+        if category in lemmas:
             return category
 
     return None
+    
 
 def extract_budget(query):
     """
@@ -64,26 +93,26 @@ def extract_budget(query):
     min_price = None
     max_price = None
 
+    def clean_number(word):
+        """
+        Strip currency symbols and thousands separators
+        so "70,000" and "$70,000" both parse as 70000.0.
+        """
+        return word.replace("$", "").replace(",", "")
+
     for i, word in enumerate(words):
 
-        # Remove currency symbol
-        word = word.replace("$", "")
+        cleaned_word = clean_number(word)
 
-        # ------------------------------------------------
-        # Price range: "between 500 and 1000"
-        # ------------------------------------------------
+    # Price range: "between 500 and 1000"
 
-        if word == "between" and i + 3 < len(words):
+        if cleaned_word == "between" and i + 3 < len(words):
 
             try:
-                min_price = float(
-                    words[i + 1].replace("$", "")
-                )
+                min_price = float(clean_number(words[i + 1]))
 
                 if words[i + 2] == "and":
-                    max_price = float(
-                        words[i + 3].replace("$", "")
-                    )
+                    max_price = float(clean_number(words[i + 3]))
 
             except ValueError:
                 pass
@@ -95,7 +124,7 @@ def extract_budget(query):
         # ------------------------------------------------
 
         try:
-            price = float(word)
+            price = float(cleaned_word)
 
         except ValueError:
             continue
@@ -121,37 +150,6 @@ def extract_budget(query):
         "min_price": min_price,
         "max_price": max_price
     }
-def extract_use(query):
-    """
-    Extract the intended use of the product
-    from the user's shopping query.
-    """
-
-    if not query:
-        return None
-
-    use_keywords = [
-        "gaming",
-        "work",
-        "office",
-        "study",
-        "school",
-        "music",
-        "photography",
-        "photo",
-        "video",
-        "travel",
-        "business"
-    ]
-
-    words = query.split()
-
-    for use in use_keywords:
-
-        if use in words:
-            return use
-
-    return None
 
 def parse_query(query):
     """
@@ -169,7 +167,6 @@ def parse_query(query):
             "category": None,
             "min_price": None,
             "max_price": None,
-            "use": None
         }
 
     # Step 2: Extract product category
@@ -178,14 +175,10 @@ def parse_query(query):
     # Step 3: Extract budget information
     budget = extract_budget(normalized_query)
 
-    # Step 4: Extract intended use
-    use = extract_use(normalized_query)
-
-    # Step 5: Return all extracted information
+    # Step 4: Return all extracted information
     return {
         "query": normalized_query,
         "category": category,
         "min_price": budget["min_price"],
         "max_price": budget["max_price"],
-        "use": use
     }
