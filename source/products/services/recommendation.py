@@ -7,7 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from products.models import Product
 
-# DATA PREPARATION
+# Data preparation 
 
 def prepare_product_text(product):
     """
@@ -50,11 +50,27 @@ def prepare_product_categories(product):
     except (ValueError, SyntaxError, TypeError):
         return []
 
+def get_primary_category(product):
+    """
+    Return the most specific category assigned to a product.
+    """
+
+    if not product.categories:
+        return None
+
+    try:
+        category_data = ast.literal_eval(product.categories)
+    except (ValueError, SyntaxError, TypeError):
+        return None
+
+    if category_data and isinstance(category_data[0], list) and category_data[0]:
+        return category_data[0][-1].lower().strip()
+
+    return None
 
 def get_product_price(product):
     """
     Return the product price as a float.
-
     Returns None when price is unavailable.
     """
 
@@ -93,12 +109,8 @@ def prepare_related_products(product):
 def get_related_asins(product):
     """
     Return a unique list of related product ASINs.
-
-    Products from:
-    - also_viewed
-    - buy_after_viewing
-
-    are treated as alternative recommendation candidates.
+    Combine ASINs from every relationship type present in dataset 
+    related field
     """
 
     related_data = prepare_related_products(product)
@@ -118,7 +130,7 @@ def get_related_asins(product):
 
     return unique_asins
 
-# TEXT REPRESENTATION
+# Text representation 
 
 def build_product_text(product):
     """
@@ -139,7 +151,7 @@ def build_product_text(product):
 
     return text.strip()
 
-# TEXT SIMILARITY
+# Test similarity 
 
 def calculate_text_similarity(query, products):
     """
@@ -186,7 +198,7 @@ def calculate_text_similarity(query, products):
 
     return scores
 
-# CATEGORY MATCHING
+#  Category Matching 
 
 category_aliases = {
     "mouse": ["mouse", "mice"],
@@ -239,7 +251,7 @@ def calculate_category_score(product, category):
 
     return 0.0
 
-# PRICE MATCHING
+# Price matching 
 
 def calculate_price_score(
     product,
@@ -270,14 +282,14 @@ def calculate_price_score(
     # Product satisfies requested budget.
     return 1.0
 
-# PRODUCT SCORING
+# Peoduct scoring 
 
 def calculate_product_score(
     product,
     text_score,
-    category=None,
-    min_price=None,
-    max_price=None
+    category_score,
+    price_score
+   
 ):
     """
     Calculate the final recommendation score.
@@ -293,23 +305,9 @@ def calculate_product_score(
     the product title and description.
     """
 
-    category_score = calculate_category_score(
-        product,
-        category
-    )
-
-    price_score = calculate_price_score(
-        product,
-        min_price,
-        max_price
-    )
-
     # Convert price score into a positive contribution.
     if price_score == 1.0:
         normalized_price_score = 1.0
-
-    elif price_score == 0.0:
-        normalized_price_score = 0.0
 
     else:
         normalized_price_score = 0.0
@@ -322,7 +320,7 @@ def calculate_product_score(
 
     return final_score
 
-# PRIMARY RECOMMENDATION ENGINE
+# Primary recommendation function
 
 def clean_query_text(text):
     """
@@ -340,149 +338,180 @@ def clean_query_text(text):
         return ""
 
     return re.sub(r"\b\d+([.,]\d+)?\b", "", text).strip()
-
-def recommend_products(
-    query,
-    category=None,
-    min_price=None,
-    max_price=None,
-    top_n=5
-):
+#new function 
+def score_all_products(query, category=None, min_price=None, max_price=None):
     """
-    Main recommendation function.
-
-    The user query is compared against the product
-    catalog using TF-IDF and cosine similarity.
-
-    Category and price requirements are then used
-    to improve ranking.
+    Score every product in the catalog against the query
     """
 
-    if not query:
+    products = list(Product.objects.exclude(price__isnull=True))
+
+    if not products or not query:
         return []
 
-    products = list(
-        Product.objects.exclude(price__isnull=True)
-    )
-
-    if not products:
-        return []
-
-    # Calculate text similarity
-
-    text_scores = calculate_text_similarity(
-        query,
-        products
-    )
+    text_scores = calculate_text_similarity(query, products)
 
     scored_products = []
 
     for product in products:
-
-        text_score = text_scores.get(
-            product.id,
-            0.0
-        )
+        text_score = text_scores.get(product.id, 0.0)
+        category_score = calculate_category_score(product, category)
+        price_score = calculate_price_score(product, min_price, max_price)
 
         final_score = calculate_product_score(
             product=product,
             text_score=text_score,
-            category=category,
-            min_price=min_price,
-            max_price=max_price
+            category_score=category_score,
+            price_score=price_score
         )
 
-        scored_products.append(
-            {
-                "product": product,
-                "score": final_score,
-                "text_score": text_score,
-                "category_score": calculate_category_score(
-                    product,
-                    category
-                ),
-                "price_score": calculate_price_score(
-                    product,
-                    min_price,
-                    max_price
-                )
-            }
-        )
+        scored_products.append({
+            "product": product,
+            "score": final_score,
+            "text_score": text_score,
+            "category_score": category_score,
+            "price_score": price_score
+        })
 
-    # Sort by recommendation score
+    scored_products.sort(key=lambda item: item["score"], reverse=True)
 
-    scored_products.sort(
-        key=lambda item: item["score"],
-        reverse=True
-    )
+    return scored_products
 
-    # Apply strict budget/category matching
+def recommend_products(query,category=None,min_price=None,max_price=None,top_n=5):
+    """
+    Main recommendation function.
+    Return the best matching products based on text, category, and price relevance.
+    """
 
+    if not query:
+        return []
+    scored_products = score_all_products(query, category, min_price, max_price)
+    # products = list(
+    #     Product.objects.exclude(price__isnull=True)
+    # )
+
+    if not scored_products:
+        return []
     filtered_products = []
 
     for item in scored_products:
 
-        product = item["product"]
-
-        # Category requirement
         if category:
-
-            category_score = calculate_category_score(
-                product,
-                category
-            )
-
-            if category_score == 0:
+            if item["category_score"] == 0:
                 continue
 
-        # Price requirement
         if min_price is not None or max_price is not None:
-
-            price_score = calculate_price_score(
-                product,
-                min_price,
-                max_price
-            )
-
-            if price_score == -1.0:
+            if item["price_score"] == -1.0:
                 continue
 
         filtered_products.append(item)
 
-    # Return the best matching products
+    return filtered_products[:top_n]
 
-    recommendations = filtered_products[:top_n]
 
-    return recommendations
+    # # Calculate text similarity
 
-# ALTERNATIVE RECOMMENDATIONS
+    # text_scores = calculate_text_similarity(
+    #     query,
+    #     products
+    # )
 
-def get_alternative_products(
-    base_product,
-    top_n=5
-):
+    # scored_products = []
+
+    # for product in products:
+
+    #     text_score = text_scores.get(
+    #         product.id,
+        #     0.0
+        # )
+
+        # category_score = calculate_category_score(
+        #     product,
+        #     category
+        # )
+
+        # price_score = calculate_price_score(
+        #     product,
+        #     min_price,
+        #     max_price
+        # )
+        
+        # final_score = calculate_product_score(
+        #     product=product,
+        #     text_score=text_score,
+        #     category_score=category_score,
+        #     price_score=price_score
+
+        # )
+
+        # scored_products.append(
+        #     {
+        #         "product": product,
+        #         "score": final_score,
+        #         "text_score": text_score,
+        #         "category_score": category_score,
+        #         "price_score": price_score
+        #     }
+        # )
+
+    # Sort by recommendation score
+
+    # scored_products.sort(
+    #     key=lambda item: item["score"],
+    #     reverse=True
+    # )
+
+    # # Apply strict budget/category matching
+
+    # filtered_products = []
+
+    # for item in scored_products:
+
+    #     product = item["product"]
+
+    #     # Category requirement
+    #     if category:
+
+    #         if item["category_score"] == 0:
+    #             continue
+
+    #     # Price requirement
+    #     if min_price is not None or max_price is not None:
+
+    #         if item["price_score"] == -1.0:
+    #             continue
+
+    #     filtered_products.append(item)
+
+    # # Return the best matching products
+
+    # recommendations = filtered_products[:top_n]
+
+    # return recommendations
+
+# Alternative recommendation 
+
+def get_alternative_products(base_product,top_n=5):
     """
-    Find alternative products using the related-product
-    information stored in the dataset.
+    Return related products from the catalog as alternatives.
 
-    Only related products that actually exist in our
-    600-product database are returned.
     """
 
-    related_asins = get_related_asins(
-        base_product
-    )
+    related_asins = get_related_asins(base_product)
 
     if not related_asins:
         return []
 
+    #new lines
+
+    matched_products = Product.objects.filter(asin__in=related_asins)
+    products_by_asin = {product.asin: product for product in matched_products}
     alternatives = []
 
     for asin in related_asins:
 
-        product = Product.objects.filter(
-            asin=asin
-        ).first()
+        product = products_by_asin.get(asin)
+        #product = Product.objects.filter(asin=asin).first()
 
         # Ignore related products that are not
         # included in our 600-product dataset.
@@ -496,7 +525,7 @@ def get_alternative_products(
 
     return alternatives
 
-# FALLBACK RECOMMENDATION SYSTEM
+# Fallback recommendation 
 
 def recommend_with_fallback(
     query,
@@ -506,17 +535,10 @@ def recommend_with_fallback(
     top_n=5
 ):
     """
-    Complete recommendation flow.
-
-    1. Try to find products matching the user's requirements.
-    2. If enough suitable products are found, return them.
-    3. If there are not enough suitable products, use
-       related products as alternatives.
-
-    Returns a dictionary containing:
-        recommendations
-        alternatives
-        mode
+    Return suitable product recommendations and alternatives
+    when enough exact matches are not available.
+    Returns:
+        dict: Recommendations, alternatives, and recommendation mode.
     """
 
     recommendations = recommend_products(
@@ -589,32 +611,26 @@ def recommend_with_fallback(
         "alternatives": alternatives
     }
 
-def suggest_price_range(category, min_price=None, max_price=None):
+def suggest_price_range(category, all_scored_products, min_price=None, max_price=None):
+
     """
-    Suggest a realistic price range for the given category, based
-    on the actual prices present in the catalog.
-
-    If the user already gave a price range, the suggestion is
-    intersected with it (narrowed to what's realistically available
-    within their stated budget). If the user's range doesn't overlap
-    the catalog's actual prices for that category at all, the full
-    actual range is suggested instead, since a suggestion the user's
-    own bounds would reject isn't useful.
-
-    Returns None if no category was extracted at all — per FR006,
-    with nothing to base a category-specific suggestion on, no price
-    constraint should be suggested; the user just sees similar
-    products with no artificial price framing.
+    Suggest a realistic price range from catalog prices for the category.
+    Narrows the range using the user's budget when possible.
+    Returns None when no category or matching products are found.
     """
-
     if not category:
         return None
-
     matching_prices = [
-        get_product_price(product)
-        for product in Product.objects.exclude(price__isnull=True)
-        if calculate_category_score(product, category) >= 0.5
+        get_product_price(item["product"])
+        for item in all_scored_products
+        if item["category_score"] >= 0.5
     ]
+
+    # matching_prices = [
+    #     get_product_price(product)
+    #     for product in Product.objects.exclude(price__isnull=True)
+    #     if calculate_category_score(product, category) >= 0.5
+    # ]
 
     if not matching_prices:
         return None
@@ -635,16 +651,12 @@ def suggest_price_range(category, min_price=None, max_price=None):
         "max_price": round(suggested_max, 2)
     }
 
-# new function for decision support 
+# function for decision support 
 def suggest_category(parsed_category, top_result):
     """
-    Suggest a category when none was extracted from the query,
-    based on the best-matching product's own category — a
-    "did you mean X?" style hint.
+    Suggest a product category from the top recommendation
+    when no category was extracted from the user's query.
 
-    Returns None if a category was already extracted (nothing to
-    suggest — the user was already specific) or if there's no
-    top result to base a suggestion on.
     """
 
     if parsed_category:
@@ -652,21 +664,14 @@ def suggest_category(parsed_category, top_result):
 
     if not top_result:
         return None
-
-    product_categories = prepare_product_categories(top_result["product"])
-
-    return product_categories[0] if product_categories else None
-
-# function end
+    
+    return get_primary_category(top_result["product"])
 
 def get_recommendations_for_query(query, top_n=5):
+
     """
-    Full pipeline: takes a single raw free-text query (FR003),
-    runs it through the NLP layer to extract structured
-    requirements (FR004/FR005), passes those requirements into
-    the recommendation engine (FR007) to get ranked results, and
-    attaches a Decision Support suggestion (FR006) alongside the
-    result.
+    Process a natural-language shopping query and generate
+    recommendations using the NLP and recommendation layers.
     """
 
     parsed = parse_query(query)
@@ -692,6 +697,7 @@ def get_recommendations_for_query(query, top_n=5):
     top_result = result["recommendations"][0] if result["recommendations"] else None
 
     if top_result and top_result["text_score"] == 0.0 and top_result["category_score"] == 0.0:
+        
         return {
             "mode": "no_match",
             "message": "We couldn't find anything matching that. Try simpler terms, like a product type (e.g. 'headphones', 'laptop', 'camera').",
@@ -699,11 +705,18 @@ def get_recommendations_for_query(query, top_n=5):
             "alternatives": [],
             "decision_support": None
         }
+    all_scored = score_all_products(
+        cleaned_text,
+        parsed["category"],
+        parsed["min_price"],
+        parsed["max_price"]
+    )
 
     result["message"] = None
     result["decision_support"] = {
         "suggested_price_range": suggest_price_range(
             parsed["category"],
+            all_scored,
             parsed["min_price"],
             parsed["max_price"]
         ),

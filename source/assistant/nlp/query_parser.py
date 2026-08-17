@@ -33,17 +33,9 @@ def normalize_query(query):
 
 def tokenize_and_lemmatize(query):
     """
-    Run the query through spaCy to get a list of lemmas.
-
-    This replaces raw query.split() with proper tokenization,
-    which automatically separates punctuation from words
-    (e.g. "headphones." -> "headphones" + "."), and lemmatization,
-    which reduces words to their base form so plurals and
-    singulars both match the same keyword
-    (e.g. "cameras" -> "camera", "mice" -> "mouse").
-
-    Punctuation and whitespace tokens are dropped since they
-    carry no matching value for keyword lookup.
+    Tokenize and lemmatize the query using spaCy.
+    Returns:
+        list: Lemmas with punctuation and whitespace removed.
     """
 
     if not query:
@@ -95,8 +87,9 @@ def extract_budget(query):
 
     def clean_number(word):
         """
-        Strip currency symbols and thousands separators
-        so "70,000" and "$70,000" both parse as 70000.0.
+        Remove currency symbols and commas from a price string.
+        Returns:
+        str: Cleaned numeric string.
         """
         return word.replace("$", "").replace(",", "")
 
@@ -119,9 +112,7 @@ def extract_budget(query):
 
             continue
 
-        # ------------------------------------------------
         # Try to convert the current word into a number
-        # ------------------------------------------------
 
         try:
             price = float(cleaned_word)
@@ -153,8 +144,9 @@ def extract_budget(query):
 
 def parse_query(query):
     """
-    Process the user's shopping query and return
-    structured requirements for the recommendation engine.
+   Parse a shopping query into structured requirements.
+    Returns:
+        dict: Query, category, minimum price, and maximum price.
     """
 
     # Step 1: Normalize the original query
