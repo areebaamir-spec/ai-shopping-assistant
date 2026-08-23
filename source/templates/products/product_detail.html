@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}{{ product.title }}{% endblock %}
+
+{% block content %}
+
+    <a href="{% url 'products:homepage' %}" class="back-link">&larr; Back to homepage</a>
+
+    <section class="product-detail">
+        <div class="detail-image">
+            <img src="{{ product.image_url }}" alt="{{ product.title }}">
+        </div>
+
+        <div class="detail-info">
+            <h1>{{ product.title }}</h1>
+            <p class="price">${{ product.price }}</p>
+            <p class="description">{{ product.description }}</p>
+        </div>
+    </section>
+
+{% endblock %}

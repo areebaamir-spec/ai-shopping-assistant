@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Search — AI Shopping Assistant{% endblock %}
+
+{% block content %}
+
+    <section class="query-header">
+        <h1>✨ Ask in Natural Language</h1>
+        <p>Describe what you're looking for and we'll find the best matches for you.</p>
+
+        <form method="GET" action="{% url 'assistant:smart_search' %}" class="quick-search">
+            <input
+                type="text"
+                name="q"
+                value="{{ query }}"
+                placeholder="I need wireless headphones under 5000"
+                autofocus
+            >
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+        <p class="hint">Example: "gaming laptop under 70000" or "bluetooth speaker for outdoor use"</p>
+    </section>
+
+        {% if explore_products %}
+        <section>
+            <h2>Explore Products</h2>
+            <ul class="product-grid">
+                {% for product in explore_products %}
+                    <li class="product-card">
+                        <a href="{% url 'products:product_detail' product.asin %}">
+                            <div class="card-image">
+                                <img src="{{ product.image_url }}" alt="{{ product.title }}" loading="lazy">
+                            </div>
+                            <div class="card-body">
+                                <h3>{{ product.title }}</h3>
+                                <p class="price">${{ product.price }}</p>
+                                <span class="view-details">View Details</span>
+                            </div>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        </section>
+    {% endif %}
+
+    {% if result %}
+
+        {% if result.message %}
+            <p class="system-message">{{ result.message }}</p>
+        {% endif %}
+
+        {% if result.decision_support.suggested_price_range or result.decision_support.suggested_category %}
+            <div class="decision-support-banner">
+                {% if result.decision_support.suggested_price_range %}
+                    <span>Typical price range: ${{ result.decision_support.suggested_price_range.min_price }} – ${{ result.decision_support.suggested_price_range.max_price }}</span>
+                {% endif %}
+                {% if result.decision_support.suggested_category %}
+                    <span>Did you mean: {{ result.decision_support.suggested_category }}?</span>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if result.recommendations %}
+            <section>
+                <h2>Recommended Products</h2>
+                <p class="results-for">Results for: "{{ query }}"</p>
+                <ul class="product-grid">
+                    {% for item in result.recommendations %}
+                        <li class="product-card">
+                            <a href="{% url 'products:product_detail' item.product.asin %}">
+                                <div class="card-image">
+                                    <img src="{{ item.product.image_url }}" alt="{{ item.product.title }}" loading="lazy">
+                                </div>
+                                <div class="card-body">
+                                    <h3>{{ item.product.title }}</h3>
+                                    <p class="price">${{ item.product.price }}</p>
+                                    <span class="view-details">View Details</span>
+                                </div>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </section>
+        {% endif %}
+
+        {% if result.alternatives %}
+            <section>
+                <h2>You might also consider</h2>
+                <ul class="product-grid">
+                    {% for product in result.alternatives %}
+                        <li class="product-card">
+                            <a href="{% url 'products:product_detail' product.asin %}">
+                                <div class="card-image">
+                                    <img src="{{ product.image_url }}" alt="{{ product.title }}" loading="lazy">
+                                </div>
+                                <div class="card-body">
+                                    <h3>{{ product.title }}</h3>
+                                    <p class="price">${{ product.price }}</p>
+                                    <span class="view-details">View Details</span>
+                                </div>
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </section>
+        {% endif %}
+
+        <p class="ai-disclosure">Recommendations are generated using AI based on your query and available product data.</p>
+
+    {% endif %}
+
+{% endblock %}

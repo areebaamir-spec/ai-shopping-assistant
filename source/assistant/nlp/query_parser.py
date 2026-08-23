@@ -4,20 +4,12 @@ import spacy as sp
 nlp = sp.load("en_core_web_sm")
 
 product_categories = [
-        "soundbar",
         "headphone",
         "laptop",
-        "computer",
-        "tablet",
-        "smartphone",
         "phone",
-        "speaker",
-        "camera",
-        "monitor",
+        "tablet",
         "keyboard",
         "mouse",
-        "television",
-        "tv",
     ]
 
 def normalize_query(query):

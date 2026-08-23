@@ -1,0 +1,38 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}AI Shopping Assistant{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="{% url 'products:homepage' %}" class="brand">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 8h12l-1 12H7L6 8Z" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M9 8V6a3 3 0 0 1 6 0v2" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+            AI Shopping Assistant
+        </a>
+
+        <div class="nav-links">
+            <a href="{% url 'products:homepage' %}">Home</a>
+            <a href="{% url 'assistant:smart_search' %}">Smart Search</a>
+        </div>
+    </nav>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <p>AI Shopping Assistant — Final Year Project</p>
+    </footer>
+
+</body>
+</html>

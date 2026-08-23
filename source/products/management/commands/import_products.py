@@ -51,6 +51,7 @@ class Command(BaseCommand):
                         "brand": row["brand"] or None,
                         "image_url": row["image_url"] or None,
                         "related": row["related"] or None,
+                        "product_type":row["product_type"],
                     }
                 )
 

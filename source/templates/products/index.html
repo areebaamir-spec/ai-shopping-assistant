@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}AI Shopping Assistant — Home{% endblock %}
+
+{% block content %}
+
+    <section class="hero">
+        <div class="hero-text">
+            <h1>Smart Shopping,<br><span class="accent">Powered by AI</span></h1>
+            <p>Describe what you're looking for in plain language — get ranked, relevant product matches instantly.</p>
+            <a href="{% url 'assistant:smart_search' %}" class="btn btn-primary">Ask AI for Recommendations</a>
+        </div>
+    </section>
+
+    <section class="search-bar-section">
+        <form method="GET" action="{% url 'assistant:smart_search' %}" class="quick-search">
+            <input type="text" name="q" placeholder="Search for products, categories, brands...">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+    </section>
+
+    <section>
+        <h2>Featured Products</h2>
+
+        {% if products %}
+            <ul class="product-grid">
+                {% for product in products %}
+                    <li class="product-card">
+                        <a href="{% url 'products:product_detail' product.asin %}">
+                            <div class="card-image">
+                                <img src="{{ product.image_url }}" alt="{{ product.title }}" loading="lazy">
+                            </div>
+                            <div class="card-body">
+                                <h3>{{ product.title }}</h3>
+                                <p class="price">${{ product.price }}</p>
+                            </div>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="empty-state">No products available right now.</p>
+        {% endif %}
+    </section>
+
+{% endblock %}
