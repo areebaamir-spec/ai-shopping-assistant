@@ -3,13 +3,12 @@ import spacy as sp
 
 nlp = sp.load("en_core_web_sm")
 
-product_categories = [
-        "headphone",
-        "laptop",
+PRODUCT_CATEGORIES = [
         "phone",
+        "laptop",
         "tablet",
-        "keyboard",
-        "mouse",
+        "watch",
+        "earbud",
     ]
 
 def normalize_query(query):
@@ -52,9 +51,10 @@ def extract_category(query):
         return None
 
     lemmas = tokenize_and_lemmatize(query)
+    lemma_text = " ".join(lemmas)
 
-    for category in product_categories:
-        if category in lemmas:
+    for category in PRODUCT_CATEGORIES:
+        if category in lemmas or category in lemma_text:
             return category
 
     return None

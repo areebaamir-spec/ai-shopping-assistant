@@ -8,11 +8,22 @@
 
     <section class="product-detail">
         <div class="detail-image">
-            <img src="{{ product.image_url }}" alt="{{ product.title }}">
+            <img src="{{ product.img_url }}" alt="{{ product.title }}">
         </div>
 
         <div class="detail-info">
             <h1>{{ product.title }}</h1>
+
+            {% if product.brand %}
+                <p class="brand">Brand: {{ product.brand }}</p>
+            {% endif %}
+
+            {% if product.rating %}
+                <p class="rating">Rating: {{ product.rating }} / 5</p>
+            {% endif %}
+
+            <p class="subcategory">{{ product.main_category }}{% if product.sub_category %} &rsaquo; {{ product.sub_category }}{% endif %}</p>
+
             <p class="price">${{ product.price }}</p>
             <p class="description">{{ product.description }}</p>
         </div>

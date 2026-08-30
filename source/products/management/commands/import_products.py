@@ -1,5 +1,6 @@
 import csv
 import os
+import ast
 
 from django.core.management.base import BaseCommand
 from products.models import Product
@@ -40,18 +41,30 @@ class Command(BaseCommand):
 
             # Read and import each product.
             for row in reader:
+                related_value = []
+                raw_related = row.get("related_asins")
+
+                if raw_related:
+                    try:
+                        parsed = ast.literal_eval(raw_related)
+                        if isinstance(parsed, list):
+                            related_value = parsed
+                    except (ValueError, SyntaxError):
+                        related_value = []
 
                 Product.objects.update_or_create(
-                    asin=row["asin"],
+                    product_id=row["product_id"],
                     defaults={
+
                         "title": row["title"],
-                        "description": row["description"] or None,
-                        "categories": row["categories"],
-                        "price": row["price"] or None,
                         "brand": row["brand"] or None,
-                        "image_url": row["image_url"] or None,
-                        "related": row["related"] or None,
-                        "product_type":row["product_type"],
+                        "price": row["price"] or None,
+                        "img_url": row["img_url"] or None,
+                        "description": row["description"] or None,
+                        "recommendation_text": row["recommendation_text"] or None,
+                        "main_category": row["main_category"] or None,
+                        "sub_category": row["sub_category"] or None,
+                        "rating": row["rating"] or 0,
                     }
                 )
 

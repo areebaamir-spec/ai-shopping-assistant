@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — AI Shopping Assistant{% endblock %}
+{% block content %}
+    <section class="auth-form">
+        <h1>Create an account</h1>
+        <form method="POST">
+            {% csrf_token %}
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                        <p class="field-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Sign Up</button>
+        </form>
+        <p class="auth-switch">Already have an account? <a href="{% url 'assistant:login' %}">Log in</a></p>
+    </section>
+{% endblock %}

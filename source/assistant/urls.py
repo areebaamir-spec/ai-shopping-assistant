@@ -4,4 +4,7 @@ from . import views
 app_name='assistant'
 urlpatterns = [
     path("search/", views.smart_search, name="smart_search"),
+    path("signup/", views.signup_view, name="signup"),
+    path("login/", views.login_view, name="login"),
+    path("logout/", views.logout_view, name="logout"),
 ]

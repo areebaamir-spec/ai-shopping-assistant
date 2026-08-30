@@ -11,7 +11,7 @@
 </head>
 <body>
 
-    <nav class="navbar">
+        <nav class="navbar">
         <a href="{% url 'products:homepage' %}" class="brand">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M6 8h12l-1 12H7L6 8Z" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round"/>
@@ -22,10 +22,29 @@
 
         <div class="nav-links">
             <a href="{% url 'products:homepage' %}">Home</a>
+            <div class="nav-dropdown">
+                <span class="nav-dropdown-trigger">Categories</span>
+                <div class="nav-dropdown-menu">
+                    <a href="{% url 'assistant:smart_search' %}?q=mobile phone">Mobile Phones</a>
+                    <a href="{% url 'assistant:smart_search' %}?q=laptop">Laptops</a>
+                    <a href="{% url 'assistant:smart_search' %}?q=tablet">Tablets</a>
+                    <a href="{% url 'assistant:smart_search' %}?q=smartwatch">Smart Watches</a>
+                    <a href="{% url 'assistant:smart_search' %}?q=earbuds">Earbuds</a>
+                </div>
+            </div>
             <a href="{% url 'assistant:smart_search' %}">Smart Search</a>
         </div>
-    </nav>
 
+        <div class="nav-auth">
+            {% if user.is_authenticated %}
+                <span>Hello, {{ user.first_name|default:user.username }}</span>
+                <a href="{% url 'assistant:logout' %}">Logout</a>
+            {% else %}
+                <a href="{% url 'assistant:login' %}">Login</a>
+                <a href="{% url 'assistant:signup' %}" class="btn btn-primary btn-small">Sign Up</a>
+            {% endif %}
+        </div>
+    </nav>
     <main>
         {% block content %}{% endblock %}
     </main>
@@ -36,3 +55,4 @@
 
 </body>
 </html>
+

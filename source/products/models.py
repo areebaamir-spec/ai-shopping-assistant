@@ -1,34 +1,45 @@
 from django.db import models
 
 class Product(models.Model):
-    # Amazon Standard Identification Number.
-    # Each product must have a unique ASIN.
-    asin = models.CharField(max_length=20, unique=True)
+    """
+    Stores products used by the AI Shopping Assistant.
 
-    # Product name/title.
+    The model fields correspond to the final processed dataset
+    used by the recommendation system.
+    """
+
+    # Unique product identifier created during dataset preparation.
+
+    product_id = models.CharField(max_length=20,unique=True)
+
+     # Product name/title.
     title = models.TextField()
 
-    # Detailed product description.
-    # Some products do not have a description.
-    description = models.TextField(blank=True, null=True)
+    # Brand extracted from the product information.
 
-    # Product category information.
-    # The dataset stores categories as a nested list.
-    categories = models.TextField()
+    brand = models.CharField(max_length=255 ,blank=True,null=True)
 
-    # Product price.
-    # Some products do not have a recorded price.
-    price = models.DecimalField(max_digits=10,decimal_places=2,blank=True,null=True)
+    # Product price in USD.
 
-    # Brand name.
-    # Many products do not have brand information.
-    brand = models.CharField(max_length=255,blank=True,null=True)
+    price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
 
     # Product image URL.
-    image_url = models.URLField(max_length=500,blank=True,null=True)
+    img_url = models.URLField(max_length=500,blank=True,null=True)
 
-    related = models.TextField(blank=True,null=True)
-    product_type = models.CharField(max_length=50, null=True, blank=True)
+    # Detailed product description.
+    description = models.TextField(blank=True,null=True)
+
+    # Product rating used for display and future recommendation logic.
+    rating = models.DecimalField(max_digits=3,decimal_places=1,blank=True,null=True)
+
+     # Broad product category.
+    main_category = models.CharField(max_length=255,blank=True,null=True)
+
+    # More specific product category/brand grouping.
+    sub_category = models.CharField(max_length=255,blank=True,null=True)
+
+    # Text prepared for the recommendation engine.
+    recommendation_text = models.TextField(blank=True,null=True)
 
     def __str__(self):
         return self.title

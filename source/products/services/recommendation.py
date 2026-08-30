@@ -22,52 +22,6 @@ def prepare_product_text(product):
 
     return text.lower().strip()
 
-
-def prepare_product_categories(product):
-    """
-    Convert the category string stored in the database
-    into a simple list of category names.
-    """
-
-    if not product.categories:
-        return []
-
-    try:
-        category_data = ast.literal_eval(product.categories)
-
-        categories = []
-
-        for category_group in category_data:
-            if isinstance(category_group, list):
-                categories.extend(category_group)
-
-        return [
-            category.lower().strip()
-            for category in categories
-            if category
-        ]
-
-    except (ValueError, SyntaxError, TypeError):
-        return []
-
-def get_primary_category(product):
-    """
-    Return the most specific category assigned to a product.
-    """
-
-    if not product.categories:
-        return None
-
-    try:
-        category_data = ast.literal_eval(product.categories)
-    except (ValueError, SyntaxError, TypeError):
-        return None
-
-    if category_data and isinstance(category_data[0], list) and category_data[0]:
-        return category_data[0][-1].lower().strip()
-
-    return None
-
 def get_product_price(product):
     """
     Return the product price as a float.
@@ -90,64 +44,34 @@ def get_product_brand(product):
 
     return product.brand.lower().strip()
 
+# def get_related_asins(product):
+#     """
+#     Return the product's related ASINs.
 
-def prepare_related_products(product):
-    """
-    Convert the related-product string into a Python dictionary.
-    """
-
-    if not product.related:
-        return {}
-
-    try:
-        return ast.literal_eval(product.related)
-
-    except (ValueError, SyntaxError, TypeError):
-        return {}
-
-
-def get_related_asins(product):
-    """
-    Return a unique list of related product ASINs.
-    Combine ASINs from every relationship type present in dataset 
-    related field
-    """
-
-    related_data = prepare_related_products(product)
-
-    if not related_data:
-        return []
-
-    related_asins = []
-
-    for asin_list in related_data.values():
-
-        if isinstance(asin_list, list):
-            related_asins.extend(asin_list)
-
-    # Remove duplicates while preserving order.
-    unique_asins = list(dict.fromkeys(related_asins))
-
-    return unique_asins
+#     related_asins is a JSONField — already a real Python list,
+#     stored directly by the dataset build (no relationship-type
+#     dict to flatten, unlike the old dataset's stringified format).
+#     """
+#     return product.related_asins or []
 
 # Text representation 
 
 def build_product_text(product):
+
     """
     Build the complete text representation used
     by the recommendation engine.
 
     Title and description are the primary text.
-    Categories are also included to strengthen
-    category-related matching.
+    main_category and subcategory are appended to
+    strengthen category-related matching.
     """
-
     text = prepare_product_text(product)
 
-    categories = prepare_product_categories(product)
-
-    if categories:
-        text += " " + " ".join(categories)
+    if product.main_category:
+        text += " " + product.main_category.lower()
+    if product.sub_category:
+        text += " " + product.sub_category.lower()
 
     return text.strip()
 
@@ -200,16 +124,12 @@ def calculate_text_similarity(query, products):
 
 #  Category Matching 
 
-category_aliases = {
-    "mouse": ["mouse", "mice"],
-    "headphone": ["headphone", "headphones"],
-    "computer": ["computer", "computers"],
-    "camera": ["camera", "cameras"],
-    "speaker": ["speaker", "speakers"],
-    "monitor": ["monitor", "monitors"],
-    "keyboard": ["keyboard", "keyboards"],
-    "television": ["television", "televisions"],
-    "tv": ["tv", "tvs"],
+CATEGORY_ALIASES = {
+    "phone": ["mobile phones", "mobile phone", "phone", "smartphone", "smartphones"],
+    "laptop": ["laptops", "laptop"],
+    "tablet": ["tablets", "tablet"],
+    "watch": ["smart watches", "smartwatch", "smartwatches", "watch"],
+    "earbud": ["earbuds", "earbud", "earphone", "earphones"],
 }
 
 def calculate_category_score(product, category):
@@ -221,33 +141,24 @@ def calculate_category_score(product, category):
         0.5 -> partial category match
         0.0 -> no category match
     """
-
     if not category:
         return 0.0
 
-    product_categories = prepare_product_categories(product)
-
     requested_category = category.lower().strip()
+    variants = CATEGORY_ALIASES.get(requested_category, [requested_category])
 
-    variants = category_aliases.get(requested_category, [requested_category])
+    product_main = (product.main_category or "").lower().strip()
+    product_sub = (product.sub_category or "").lower().strip()
 
-    if not product_categories:
-        return 0.0
-
-    # Exact category match
-    for product_category in product_categories:
-
-        if product_category in variants:
-            return 1.0
-
-    # Partial category match
-    for product_category in product_categories:
-
-        if (
-            requested_category in product_category
-            or product_category in requested_category
-        ):
-            return 0.5
+    if product_main in variants or product_sub in variants:
+        return 1.0
+    if (
+        requested_category in product_main
+        or product_main in requested_category
+        or requested_category in product_sub
+        or product_sub in requested_category
+    ):
+        return 0.5
 
     return 0.0
 
@@ -412,32 +323,38 @@ def recommend_products(query,category=None,min_price=None,max_price=None,top_n=5
 
 def get_alternative_products(base_product,top_n=5):
     """
-    Return related products from the catalog as alternatives.
+    Find alternative products via category similarity.
 
+    This dataset carries no relationship data (unlike the earlier
+    Amazon-derived dataset's related_asins), so alternatives are
+    generated from the catalog's own category structure instead:
+    same subcategory first (most specific), falling back to the
+    broader main_category if not enough subcategory matches exist.
     """
 
-    related_asins = get_related_asins(base_product)
+    subcategory_matches = (
+        Product.objects.filter(
+            main_category=base_product.main_category,
+            sub_category=base_product.sub_category,
+        )
+        .exclude(id=base_product.id)
+        .exclude(price__isnull=True)
+    )
 
-    if not related_asins:
-        return []
+    alternatives = list(subcategory_matches.order_by("?")[:top_n])
 
-    #new lines
+    if len(alternatives) < top_n:
+        existing_ids = {p.id for p in alternatives}
+        existing_ids.add(base_product.id)
 
-    matched_products = Product.objects.filter(asin__in=related_asins)
-    products_by_asin = {product.asin: product for product in matched_products}
-    alternatives = []
+        category_matches = (
+            Product.objects.filter(main_category=base_product.main_category)
+            .exclude(id__in=existing_ids)
+            .exclude(price__isnull=True)
+        )
 
-    for asin in related_asins:
-
-        product = products_by_asin.get(asin)
-    
-        if product is None:
-            continue
-
-        alternatives.append(product)
-
-        if len(alternatives) >= top_n:
-            break
+        needed = top_n - len(alternatives)
+        alternatives.extend(list(category_matches.order_by("?")[:needed]))
 
     return alternatives
 
@@ -566,16 +483,54 @@ def suggest_category(parsed_category, top_result):
     """
     Suggest a product category from the top recommendation
     when no category was extracted from the user's query.
-
     """
 
     if parsed_category:
         return None
-
     if not top_result:
         return None
-    
-    return get_primary_category(top_result["product"])
+
+    return top_result["product"].main_category
+
+# decision support enhancement function 
+
+def build_decision_support_chips(parsed, price_range, suggested_category):
+    """
+    Turn the raw decision-support data into clickable, actionable
+    refine options — each one a query string that re-runs the
+    search narrower than the original, reusing the existing
+    parse_query() pipeline. No new parsing logic needed: a click
+    just submits a new, more specific sentence.
+    """
+
+    base_text = parsed["category"] or clean_query_text(parsed["query"])
+
+    price_chips = []
+
+    if price_range:
+        min_price = price_range["min_price"]
+        max_price = price_range["max_price"]
+        span = max_price - min_price
+
+        if span > 0:
+            band_1 = round(min_price + span / 3, 2)
+            band_2 = round(min_price + (span * 2) / 3, 2)
+
+            price_chips = [
+                {"label": f"Under ${band_1}", "query": f"{base_text} under {band_1}"},
+                {"label": f"${band_1} \u2013 ${band_2}", "query": f"{base_text} between {band_1} and {band_2}"},
+                {"label": f"Above ${band_2}", "query": f"{base_text} above {band_2}"},
+            ]
+
+    category_chip = None
+
+    if suggested_category:
+        category_chip = {
+            "label": f"Did you mean: {suggested_category}?",
+            "query": suggested_category,
+        }
+
+    return {"price_chips": price_chips, "category_chip": category_chip}
 
 def get_recommendations_for_query(query, top_n=5):
 
@@ -621,16 +576,31 @@ def get_recommendations_for_query(query, top_n=5):
         parsed["min_price"],
         parsed["max_price"]
     )
+    
+    price_range = suggest_price_range(
+        parsed["category"],
+        all_scored,
+        parsed["min_price"],
+        parsed["max_price"]
+    )
+    suggested_category = suggest_category(parsed["category"], top_result)
+
+    chips = build_decision_support_chips(parsed, price_range, suggested_category)
 
     result["message"] = None
     result["decision_support"] = {
-        "suggested_price_range": suggest_price_range(
-            parsed["category"],
-            all_scored,
-            parsed["min_price"],
-            parsed["max_price"]
-        ),
-        "suggested_category": suggest_category(parsed["category"], top_result)
+        "suggested_price_range": price_range,
+        "suggested_category": suggested_category,
+        "price_chips": chips["price_chips"],
+        "category_chip": chips["category_chip"],
     }
-    
+
+#  alternative products in sidebar
+    if top_result:
+        sidebar_alternatives = get_alternative_products(top_result["product"], top_n=5)
+        existing_ids = {item["product"].id for item in result["recommendations"]}
+        result["alternatives"] = [p for p in sidebar_alternatives if p.id not in existing_ids][:5]
+    else:
+        result["alternatives"] = []
+
     return result
